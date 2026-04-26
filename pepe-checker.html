@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐸 DeFi United checker by Business Pepe</title>
+    <style>
+        :root {
+            --bg-color: #0a140d; --panel-bg: #112416; --primary-green: #39ff14;
+            --text-main: #e0e0e0; --text-muted: #888; --border-color: #1e3d26;
+        }
+        body {
+            font-family: 'Courier New', Courier, monospace; background-color: var(--bg-color);
+            color: var(--text-main); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center;
+        }
+        .container {
+            width: 100%; max-width: 900px; background: var(--panel-bg);
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 30px;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.1);
+        }
+        h1 { color: var(--primary-green); text-align: center; margin: 0 0 10px 0; }
+        .header-links {
+            margin-top: 12px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 13px;
+        }
+        .header-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .header-links a:hover { opacity: 0.7; text-decoration: underline; }
+        .header-links .sep { color: var(--text-muted); margin: 0 12px; }
+        .input-group { display: flex; gap: 10px; margin: 20px 0 30px 0; }
+        input {
+            flex: 1; padding: 15px; background: var(--bg-color); border: 1px solid var(--border-color);
+            color: var(--primary-green); font-family: monospace; font-size: 16px; border-radius: 4px; outline: none;
+        }
+        button {
+            padding: 15px 30px; background: var(--border-color); color: var(--primary-green);
+            border: 1px solid var(--primary-green); font-weight: bold; cursor: pointer; border-radius: 4px;
+        }
+        button:hover { background: var(--primary-green); color: var(--bg-color); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border-color); }
+        th { color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
+        .status { font-weight: bold; }
+        .status.yes { color: var(--primary-green); }
+        .status.no { color: #ff3939; }
+        .status.loading { color: #f1c40f; font-size: 13px; }
+        .net-tag { font-size: 10px; color: #aaa; margin-left: 5px; font-weight: normal; }
+        .debug-info { font-size: 10px; color: #888; font-weight: normal; display: block; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🐸 DeFi United checker by Business Pepe</h1>
+
+    <div class="header-links">
+        <a href="https://dune.com/0xnofomo/defi-united" target="_blank" rel="noopener">📊 Dune Dashboard</a>
+        <span class="sep">•</span>
+        <a href="https://t.me/business_pepe_official" target="_blank" rel="noopener">📢 Business Pepe</a>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="walletInput" placeholder="0x..." autocomplete="off">
+        <button onclick="runChecks()">SCAN</button>
+    </div>
+
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>Protocol</th>
+                <th>Criteria</th>
+                <th width="35%">Status</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+</div>
+
+<script>
+    const ETHERSCAN_API = "DXJI4FRI66KIU7JT5IPJSPIWKWIEGAZ9YH";
+    const DEFI_UNITED = "0x0fca5194baa59a362a835031d9c4a25970effe68";
+
+    const RPC = {
+        ETH: "https://rpc.ankr.com/eth",
+        ARB: "https://arb1.arbitrum.io/rpc",
+        OPT: "https://mainnet.optimism.io",
+        BASE: "https://mainnet.base.org"
+    };
+
+    const TASKS = [
+        { id: "kernel", p: "Kernel", c: "Holds $KERNEL", type: "token", nets: ["ETH","ARB","OPT","BASE"], addrs: ["0x3f80b1c54ae920be41a77f8b902259d48cf24ccf"] },
+        { id: "ethfi", p: "Ether.Fi", c: "Holds $ETHFI / weETH / eETH", type: "token", nets: ["ETH","ARB","BASE"], addrs: ["0xFe0c30065B384F05761f15d0CC899D4F9F9Cc0eB","0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee","0x35fA164735182de50811E8e2E824cFb9B6118ac2"] },
+        { id: "lido", p: "Lido", c: "Holds $LDO / stETH / wstETH", type: "token", nets: ["ETH","ARB","OPT"], addrs: ["0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32","0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84","0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"] },
+        { id: "ethena", p: "Ethena", c: "Holds $ENA / $sENA / USDe / sUSDe", type: "token", nets: ["ETH","ARB"], addrs: ["0x57e114B691Db790C35207b2e685D4A43181e6061","0x319243628e894bC004FDEf170460A72e61f28b49","0x4c9EDD5852cd905f086C759E838342281a5B2C0A","0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"] },
+        { id: "kelp", p: "KelpDAO", c: "Holds rsETH (Multichain)", type: "token", nets: ["ETH","ARB","OPT","BASE"], addrs: ["0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7","0x4186BFC76E2E237523CBC30FD220FE055156b41F","0x9c536412eD50a7c93C623000b218D16c518D1cDB","0x8c7D118B5c47a5BCbDF1462f928d2A6f2cDBA21ce"] },
+        { id: "aave_t", p: "Aave", c: "Holds $AAVE / $stkAAVE", type: "token", nets: ["ETH","ARB","OPT"], addrs: ["0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9","0x4da27a545c0c5B758a6BA100e3a049001de870f5","0xba5DdD1f9d7F570dc94a51479a000E3BCE967196"] },
+        { id: "aave_d", p: "Aave", c: "Voted in aave.eth", type: "dao", space: "aave.eth" },
+        { id: "arb_t", p: "Arbitrum DAO", c: "Holds $ARB", type: "token", nets: ["ARB"], addrs: ["0x912CE59144191C1204E64559FE8253a0e49E6548"] },
+        { id: "arb_d", p: "Arbitrum DAO", c: "Voted in arbitrumfoundation.eth", type: "dao", space: "arbitrumfoundation.eth" },
+        { id: "lz_t", p: "LayerZero", c: "Holds $ZRO (Multichain)", type: "token", nets: ["ETH","ARB","OPT","BASE"], addrs: ["0x6985884C4392D348587B19cb9eAAf157F13271cd"] },
+        { id: "lz_d", p: "LayerZero", c: "Voted in stgdao.eth", type: "dao", space: "stgdao.eth" },
+        { id: "frax_t", p: "Frax Finance", c: "Holds $FRAX", type: "token", nets: ["ETH","ARB","OPT","BASE"], addrs: ["0x853d955aCEf822Db058eb8505911ED77F175b99e"] },
+        { id: "frax_d", p: "Frax Finance", c: "Voted in frax.eth", type: "dao", space: "frax.eth" },
+        { id: "defi", p: "DeFi United", c: "Donated ETH/Tokens", type: "defi" },
+        { id: "ink", p: "Ink / Tydro", c: "Mainnet Bridge Interaction", type: "tx", target: "0x...INK_BRIDGE..." }
+    ];
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    function initUI() {
+        document.getElementById('resultsBody').innerHTML = TASKS.map(t => `
+            <tr><td>${t.p}</td><td style="color:#aaa; font-size:13px">${t.c}</td><td class="status" id="status-${t.id}">...</td></tr>
+        `).join('');
+    }
+    initUI();
+
+    function updateRow(id, success, msg = "") {
+        const el = document.getElementById(`status-${id}`);
+        if (!el) return;
+        if (success) {
+            el.innerHTML = `✅ YES ${msg ? `<span class="net-tag">${msg}</span>` : ''}`;
+            el.className = 'status yes';
+        } else {
+            el.innerHTML = `❌ NO <span class="debug-info">${msg}</span>`;
+            el.className = 'status no';
+        }
+    }
+
+    function getTier(eth) {
+        if (eth >= 1)     return { n: 1, icon: "🐳", label: "Whale"   };
+        if (eth >= 0.1)   return { n: 2, icon: "🦈", label: "Shark"   };
+        if (eth >= 0.01)  return { n: 3, icon: "🐬", label: "Dolphin" };
+        if (eth >= 0.001) return { n: 4, icon: "🐟", label: "Fish"    };
+        return                   { n: 5, icon: "🦐", label: "Shrimp"  };
+    }
+
+    function formatEth(eth) {
+        if (eth >= 1)     return eth.toFixed(4);
+        if (eth >= 0.001) return eth.toFixed(5);
+        if (eth > 0)      return eth.toExponential(2);
+        return "0";
+    }
+
+    async function checkRpc(rpc, contract, wallet) {
+        const data = "0x70a08231000000000000000000000000" + wallet.slice(2);
+        try {
+            const res = await fetch(rpc, { method: 'POST', body: JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_call",params:[{to:contract,data:data},"latest"]}) });
+            const json = await res.json();
+            return json.result && json.result !== '0x' && BigInt(json.result) > 0n;
+        } catch { return false; }
+    }
+
+    // Etherscan API V2 (chainid=1 for Ethereum mainnet). V1 was deprecated Aug 15, 2025.
+    async function fetchEtherscan(action, addr) {
+        const url = `https://api.etherscan.io/v2/api?chainid=1&module=account&action=${action}&address=${addr}&startblock=0&endblock=99999999&page=1&offset=10000&sort=desc&apikey=${ETHERSCAN_API}`;
+
+        for (let i = 0; i < 5; i++) {
+            try {
+                const res = await fetch(url).then(r => r.json());
+                if (res.status === "1" && Array.isArray(res.result)) {
+                    return res.result;
+                }
+                if (res.status === "0") {
+                    const msg  = (res.result  || "").toLowerCase();
+                    const msg2 = (res.message || "").toLowerCase();
+
+                    // Bail out immediately if API is deprecated — retries won't help
+                    if (msg.includes("deprecated")) {
+                        console.error("Etherscan V1 deprecated. Switch to V2.", res);
+                        return [];
+                    }
+                    // Real rate limit — wait and retry
+                    if (msg.includes("rate limit") || msg2.includes("rate limit")) {
+                        await sleep(1500);
+                        continue;
+                    }
+                    // "No transactions found" comes back as status=0 — that's fine
+                    return [];
+                }
+            } catch (e) {
+                await sleep(1000);
+            }
+        }
+        return [];
+    }
+
+    async function runChecks() {
+        let addr = document.getElementById('walletInput').value.trim().toLowerCase();
+        if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return alert('Invalid address');
+
+        TASKS.forEach(t => {
+            document.getElementById(`status-${t.id}`).innerHTML = 'Scanning...';
+            document.getElementById(`status-${t.id}`).className = 'status loading';
+        });
+
+        // DAO Check
+        const daoTasks = TASKS.filter(t => t.type === 'dao');
+        fetch('https://hub.snapshot.org/graphql', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({query: `query { votes(where: { voter: "${addr}", space_in: ${JSON.stringify(daoTasks.map(t=>t.space))} }) { space { id } } }`})
+        }).then(r => r.json()).then(d => {
+            const voted = d.data.votes.map(v => v.space.id);
+            daoTasks.forEach(t => updateRow(t.id, voted.includes(t.space)));
+        }).catch(() => daoTasks.forEach(t => updateRow(t.id, false, "GraphQL Err")));
+
+        // Token Checks
+        TASKS.filter(t => t.type === 'token').forEach(async t => {
+            let foundNets = new Set();
+            await Promise.all(t.nets.map(async net => {
+                for (let contract of t.addrs) {
+                    if (await checkRpc(RPC[net], contract, addr)) foundNets.add(net);
+                }
+            }));
+            updateRow(t.id, foundNets.size > 0, foundNets.size > 0 ? `(${Array.from(foundNets).join(',')})` : "");
+        });
+
+        // Mainnet TX scan (DeFi United + Ink)
+        await runMainnetTxsScan(addr);
+    }
+
+    async function runMainnetTxsScan(addr) {
+        const defiTarget = DEFI_UNITED.toLowerCase();
+        const inkTarget  = TASKS.find(t => t.id === 'ink').target.toLowerCase();
+
+        document.getElementById('status-defi').innerHTML = 'Checking TXs...';
+        document.getElementById('status-ink').innerHTML  = 'Checking TXs...';
+
+        // ---- 1. Normal TXs ----
+        const normalTxs = await fetchEtherscan("txlist", addr);
+
+        // Ink — попутно
+        const inkFound = normalTxs.some(tx => tx.to && tx.to.toLowerCase() === inkTarget);
+        updateRow("ink", inkFound, inkFound ? "(Mainnet)" : "");
+
+        let totalWei = 0n;
+        let txCount  = 0;
+
+        for (const tx of normalTxs) {
+            if (tx.to && tx.to.toLowerCase() === defiTarget &&
+                tx.isError === "0" && tx.value && tx.value !== "0") {
+                totalWei += BigInt(tx.value);
+                txCount++;
+            }
+        }
+
+        // ---- 2. Internal TXs (donations via Safe / routers) ----
+        document.getElementById('status-defi').innerHTML = 'Checking Internal TXs...';
+        await sleep(1000);
+        const internalTxs = await fetchEtherscan("txlistinternal", addr);
+
+        for (const tx of internalTxs) {
+            if (tx.to && tx.to.toLowerCase() === defiTarget &&
+                tx.isError === "0" && tx.value && tx.value !== "0") {
+                totalWei += BigInt(tx.value);
+                txCount++;
+            }
+        }
+
+        // ---- 3. ERC20 (flag only, doesn't count toward ETH tier) ----
+        document.getElementById('status-defi').innerHTML = 'Checking ERC20...';
+        await sleep(1000);
+        const tokenTxs = await fetchEtherscan("tokentx", addr);
+        const tokenDonations = tokenTxs.filter(
+            tx => tx.to && tx.to.toLowerCase() === defiTarget
+        );
+
+        // ---- Verdict ----
+        const ethAmount = Number(totalWei) / 1e18;
+
+        if (totalWei > 0n) {
+            const t = getTier(ethAmount);
+            let label = `${t.icon} Tier ${t.n} • ${formatEth(ethAmount)} ETH`;
+            if (txCount > 1)             label += ` • ${txCount} tx`;
+            if (tokenDonations.length)   label += ` • +${tokenDonations.length} token tx`;
+            updateRow("defi", true, label);
+        } else if (tokenDonations.length > 0) {
+            updateRow("defi", true, `Token only • ${tokenDonations.length} tx (no ETH tier)`);
+        } else {
+            updateRow("defi", false,
+                `Checked: ${normalTxs.length} TX, ${internalTxs.length} Int, ${tokenTxs.length} ERC20`);
+        }
+    }
+</script>
+</body>
+</html>
